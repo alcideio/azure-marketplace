@@ -1,5 +1,5 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
     "_artifactsLocation": {
@@ -78,6 +78,9 @@
         "platformFaultDomainCount": 3
       },
       "westus": {
+        "platformFaultDomainCount": 3
+      },
+      "canadacentral": {
         "platformFaultDomainCount": 3
       },
       "northeurope": {
@@ -159,7 +162,31 @@
       "Standard_M128",
       "Standard_M128m"
     ],
-    "externalNsgName": "[concat(parameters('commonVmSettings').namespacePrefix, 'external-lb-nsg')]"
+    "vmNsgName": "[concat(parameters('commonVmSettings').namespacePrefix, 'standard-lb-nsg')]",
+    "vmNsgProperties": [
+      {},
+      {
+        "securityRules": [
+          {
+            "name": "External",
+            "properties": {
+              "description": "Allows inbound traffic from Standard External LB",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "9201",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    ],
+    "standardInternalLoadBalancer": "[equals(parameters('networkSettings').internalSku, 'Standard')]",
+    "standardExternalLoadBalancer": "[equals(parameters('networkSettings').externalSku, 'Standard')]",
+    "standardInternalOrExternalLoadBalancer": "[or(variables('standardInternalLoadBalancer'), variables('standardExternalLoadBalancer'))]"
   },
   "resources": [
     {
@@ -193,7 +220,8 @@
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
               "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmMasterNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeMasterNodes), 'Yes', 'No'), parameters('topologySettings').vmMasterNodeAcceleratedNetworking)]",
-              "externalNsg": ""
+              "nsg": "",
+              "standardInternalLoadBalancer": false
             }
           },
           "elasticTags": {
@@ -203,32 +231,15 @@
       }
     },
     {
-      "condition": "[equals(parameters('networkSettings').externalSku, 'Standard')]",
+      "condition": "[variables('standardInternalOrExternalLoadBalancer')]",
       "apiVersion": "2019-04-01",
       "type": "Microsoft.Network/networkSecurityGroups",
-      "name": "[variables('externalNsgName')]",
+      "name": "[variables('vmNsgName')]",
       "location": "[parameters('commonVmSettings').location]",
       "tags": {
         "provider": "[toUpper(parameters('elasticTags').provider)]"
       },
-      "properties": {
-        "securityRules": [
-          {
-            "name": "External",
-            "properties": {
-              "description": "Allows inbound traffic from Standard External LB",
-              "protocol": "Tcp",
-              "sourcePortRange": "*",
-              "destinationPortRange": "9201",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 100,
-              "direction": "Inbound"
-            }
-          }
-        ]
-      }
+      "properties": "[variables('vmNsgProperties')[if(variables('standardExternalLoadBalancer'), 1, 0)]]"
     },
     {
       "condition": "[greater(parameters('topologySettings').vmClientNodeCount, 0)]",
@@ -236,7 +247,7 @@
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
       "dependsOn": [
-        "[variables('externalNsgName')]"
+        "[variables('vmNsgName')]"
       ],
       "properties": {
         "mode": "Incremental",
@@ -263,7 +274,8 @@
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
               "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmClientNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeClientNodes), 'Yes', 'No'), parameters('topologySettings').vmClientNodeAcceleratedNetworking)]",
-              "externalNsg": "[if(equals(parameters('networkSettings').externalSku, 'Standard'), variables('externalNsgName'), '')]"
+              "nsg": "[if(variables('standardInternalOrExternalLoadBalancer'), variables('vmNsgName'), '')]",
+              "standardInternalLoadBalancer": "[variables('standardInternalLoadBalancer')]"
             }
           },
           "elasticTags": {
@@ -277,7 +289,7 @@
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
       "dependsOn": [
-        "[variables('externalNsgName')]"
+        "[variables('vmNsgName')]"
       ],
       "properties": {
         "mode": "Incremental",
@@ -304,7 +316,8 @@
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
               "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmDataNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeDataNodes), 'Yes', 'No'), parameters('topologySettings').vmDataNodeAcceleratedNetworking)]",
-              "externalNsg": "[if(and(equals(parameters('networkSettings').externalSku, 'Standard'), equals(parameters('topologySettings').vmClientNodeCount, 0)), variables('externalNsgName'), '')]"
+              "nsg": "[if(and(variables('standardInternalOrExternalLoadBalancer'), equals(parameters('topologySettings').vmClientNodeCount, 0)), variables('vmNsgName'), '')]",
+              "standardInternalLoadBalancer": "[variables('standardInternalLoadBalancer')]"
             }
           },
           "storageSettings": {
@@ -419,7 +432,8 @@
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
               "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmLogstashAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeLogstash), 'Yes', 'No'), parameters('topologySettings').vmLogstashAcceleratedNetworking)]",
-              "externalNsg": ""
+              "nsg": "",
+              "standardInternalLoadBalancer": false
             }
           },
           "elasticTags": {

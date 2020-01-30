@@ -137,14 +137,18 @@ value defined in the template.
 
   <tr><td>loadBalancerInternalSku</td><td>string</td>
     <td>The internal load balancer SKU. Can be <code>Basic</code> or <code>Standard</code>.</td>
-    </td><td><code>Basic</code></td>
+    </td><td><code>Basic</code></td>. When the <code>Standard</code> load balanacer is selected,
+    and the <code>loadBalancerType</code> is <code>internal</code>, A Network Security Group is also deployed
+    and a public IP address attached to each VM network interface card in the backend pool, to allow
+    outbound internet traffic to install the Elastic Stack and dependencies.
   </tr>
 
   <tr><td>loadBalancerExternalSku</td><td>string</td>
     <td>The external load balancer SKU. Can be <code>Basic</code> or <code>Standard</code>.
       Only relevant when <code>loadBalancerType</code> is <code>external</code>. When the <code>Standard</code> 
       load balancer SKU is selected, the public IP address SKU attached to the external load balancer 
-      will also be <code>Standard</code>.
+      will also be <code>Standard</code>. A Network Security Group is also deployed, to allow inbound internet traffic
+      to the load balancer backend pool.
     </td>
     </td><td><code>Basic</code></td>
   </tr>
@@ -239,7 +243,7 @@ value defined in the template.
   <tr><td>vmSizeMasterNodes</td><td>string</td>
     <td>Azure VM size of dedicated master nodes. See <a href="https://github.com/elastic/azure-marketplace/blob/master/build/allowedValues.json">this list for supported sizes</a>. By default the template deploys 3 dedicated master nodes, unless <code>dataNodesAreMasterEligible</code> is set to <code>Yes</code>.
     <strong>Check that the size you choose is <a href="https://azure.microsoft.com/en-au/regions/services/">available in the region you choose</a></strong>.
-    </td><td><code>Standard_D1</code></td></tr>
+    </td><td><code>Standard_DS1_v2</code></td></tr>
 
   <tr><td>vmMasterNodeAcceleratedNetworking</td><td>string</td>
     <td>Whether to enable <a href="https://azure.microsoft.com/en-us/blog/maximize-your-vm-s-performance-with-accelerated-networking-now-generally-available-for-both-windows-and-linux/">accelerated networking</a> for Master nodes, which enables single root I/O virtualization (SR-IOV) 
@@ -261,7 +265,7 @@ value defined in the template.
   <tr><td>vmSizeDataNodes</td><td>string</td>
     <td>Azure VM size of the data nodes. See <a href="https://github.com/elastic/azure-marketplace/blob/master/build/allowedValues.json">this list for supported sizes</a>.
     <strong>Check that the size you choose is <a href="https://azure.microsoft.com/en-au/regions/services/">available in the region you choose</a></strong>.
-    </td><td><code>Standard_D1</code></td></tr>
+    </td><td><code>Standard_DS1_v2</code></td></tr>
 
   <tr><td>vmDataNodeAcceleratedNetworking</td><td>string</td>
     <td>Whether to enable <a href="https://azure.microsoft.com/en-us/blog/maximize-your-vm-s-performance-with-accelerated-networking-now-generally-available-for-both-windows-and-linux/">accelerated networking</a> for Data nodes, which enables single root I/O virtualization (SR-IOV) 
@@ -317,7 +321,7 @@ value defined in the template.
   <tr><td>vmSizeClientNodes</td><td>string</td>
     <td> Azure VM size of the coordinating nodes see <a href="https://github.com/elastic/azure-marketplace/blob/master/build/allowedValues.json">this list for supported sizes</a>.
     <strong>Check that the size you choose is <a href="https://azure.microsoft.com/en-au/regions/services/">available in the region you choose</a></strong>.
-    </td><td><code>Standard_D1</code></td></tr>
+    </td><td><code>Standard_DS1_v2</code></td></tr>
 
   <tr><td>vmClientNodeAcceleratedNetworking</td><td>string</td>
     <td>Whether to enable <a href="https://azure.microsoft.com/en-us/blog/maximize-your-vm-s-performance-with-accelerated-networking-now-generally-available-for-both-windows-and-linux/">accelerated networking</a> for coordinating nodes, which enables single root I/O virtualization (SR-IOV) 
@@ -402,7 +406,7 @@ value defined in the template.
   <tr><td>vmSizeKibana</td><td>string</td>
     <td>Azure VM size of the Kibana instance. See <a href="https://github.com/elastic/azure-marketplace/blob/master/build/allowedValues.json">this list for supported sizes</a>.
     <strong>Check that the size you select is <a href="https://azure.microsoft.com/en-au/regions/services/">available in the region you choose</a></strong>.
-    </td><td><code>Standard_A2</code></td></tr>
+    </td><td><code>Standard_A2_v2</code></td></tr>
 
   <tr><td>vmKibanaAcceleratedNetworking</td><td>string</td>
     <td>Whether to enable <a href="https://azure.microsoft.com/en-us/blog/maximize-your-vm-s-performance-with-accelerated-networking-now-generally-available-for-both-windows-and-linux/">accelerated networking</a> for Kibana, which enables single root I/O virtualization (SR-IOV) 
@@ -435,7 +439,7 @@ value defined in the template.
   <tr><td>vmSizeLogstash</td><td>string</td>
     <td>Azure VM size of the Logstash instance. See <a href="https://github.com/elastic/azure-marketplace/blob/master/build/allowedValues.json">this list for supported sizes</a>.
     <strong>Check that the size you select is <a href="https://azure.microsoft.com/en-au/regions/services/">available in the region you choose</a></strong>.
-    </td><td><code>Standard_D1</code></td></tr>
+    </td><td><code>Standard_DS1_v2</code></td></tr>
 
   <tr><td>vmLogstashCount</td><td>int</td>
     <td>The number of Logstash instances
@@ -635,7 +639,7 @@ where `<name>` refers to the resource group you just created.
   ```powershell
   $clusterParameters = @{
       "_artifactsLocation" = "https://raw.githubusercontent.com/elastic/azure-marketplace/master/src/"
-      "esVersion" = "7.4.0"
+      "esVersion" = "7.5.0"
       "esClusterName" = "elasticsearch"
       "loadBalancerType" = "internal"
       "vmDataDiskCount" = 1
@@ -670,16 +674,16 @@ the `_artifactsLocation` parameter of the template to point to a specific tagged
 
 **Targeting a specific template version is recommended for repeatable production deployments.**
 
-For example, to target the [`7.0.0` tag release with PowerShell](https://github.com/elastic/azure-marketplace/tree/7.0.0)
+For example, to target the [`7.5.0` tag release with PowerShell](https://github.com/elastic/azure-marketplace/tree/7.5.0)
 
 ```powershell
-$templateVersion = "7.0.0"
+$templateVersion = "7.5.0"
 $_artifactsLocation = "https://raw.githubusercontent.com/elastic/azure-marketplace/$templateVersion/src/"
 
 # minimum parameters required to deploy
 $clusterParameters = @{
   "_artifactsLocation" = $_artifactsLocation
-  "esVersion" = "7.0.0"
+  "esVersion" = "7.5.0"
   "adminUsername" = "russ"
   "adminPassword" = "Password1234"
   "securityBootstrapPassword" = "Password1234"
